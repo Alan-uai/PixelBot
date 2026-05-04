@@ -1,0 +1,145 @@
+// src/data/wiki-data.js
+
+// Este arquivo agrega todos os artigos da wiki e dados de mundos em um só lugar.
+import { world1Data } from './worlds/world-1-data.js';
+import { world2Data } from './worlds/world-2-data.js';
+import { world3Data } from './worlds/world-3-data.js';
+import { world4Data } from './worlds/world-4-data.js';
+import { world5Data } from './worlds/world-5-data.js';
+import { world6Data } from './worlds/world-6-data.js';
+import { world7Data } from './worlds/world-7-data.js';
+import { world8Data } from './worlds/world-8-data.js';
+import { world9Data } from './worlds/world-9-data.js';
+import { world10Data } from './worlds/world-10-data.js';
+import { world11Data } from './worlds/world-11-data.js';
+import { world12Data } from './worlds/world-12-data.js';
+import { world13Data } from './worlds/world-13-data.js';
+import { world14Data } from './worlds/world-14-data.js';
+import { world15Data } from './worlds/world-15-data.js';
+import { world16Data } from './worlds/world-16-data.js';
+import { world17Data } from './worlds/world-17-data.js';
+import { world18Data } from './worlds/world-18-data.js';
+import { world19Data } from './worlds/world-19-data.js';
+import { world20Data } from './worlds/world-20-data.js';
+import { world21Data } from './worlds/world-21-data.js';
+import { world22Data } from './worlds/world-22-data.js';
+import { world23Data } from './worlds/world-23-data.js';
+import { world24Data } from './worlds/world-24-data.js';
+import { world25Data } from './worlds/world-25-data.js';
+import { world26Data } from './worlds/world-26-data.js';
+import { world27Data } from './worlds/world-27-data.js';
+import { worldHalloweenData } from './worlds/world-halloween-data.js';
+
+import { achievementsGuideArticle } from './wiki-articles/achievements-guide.js';
+import { auraArticle } from './wiki-articles/aura-system.js';
+import { avatarIndexArticle } from './wiki-articles/avatar-index.js';
+import { birthdaySystemArticle } from './wiki-articles/birthday-system.js';
+import { championsIndexArticle } from './wiki-articles/champions-index.js';
+import { colorsAndIconsGuideArticle } from './wiki-articles/colors-and-icons-guide.js';
+import { damageSwordsArticle } from './wiki-articles/damage-swords.js';
+import { energyGainPerRankArticle } from './wiki-articles/energy-gain.js';
+import { exchangerTokenFarmGuideArticle } from './wiki-articles/guia-de-farm-de-exchanger-tokens.js';
+import { gamepassTierListArticle } from './wiki-articles/gamepass-tier-list.js';
+import { gettingStartedArticle } from './wiki-articles/getting-started.js';
+import { guildWarsArticle } from './wiki-articles/guild-wars.js';
+import { halloweenEventGuideArticle } from './wiki-articles/halloween-event-guide.js';
+import { howToGetStrongerArticle } from './wiki-articles/how-to-get-stronger.js';
+import { idealRankPerWorldArticle } from './wiki-articles/ideal-rank-per-world.js';
+import { jewelryCraftingArticle } from './wiki-articles/jewelry-crafting.js';
+import { legendaryWeaponsArticle } from './wiki-articles/legendary-weapons.js';
+import { levelExpArticle } from './wiki-articles/level-exp.js';
+import { limitedPacksGuideArticle } from './wiki-articles/limited-packs-guide.js';
+import { lobbyDungeonsArticle } from './wiki-articles/lobby-dungeons.js';
+import { prestigeArticle } from './wiki-articles/prestige-system.js';
+import { raidRequirementsArticle } from './wiki-articles/raid-requirements.js';
+import { rankArticle } from './wiki-articles/rank-system.js';
+import { scientificNotationArticle } from './wiki-articles/scientific-notation.js';
+import { scythesArticle } from './wiki-articles/scythes.js';
+import { shadowsGuideArticle } from './wiki-articles/shadows-guide.js';
+import { standsArticle } from './wiki-articles/stands.js';
+import { starChancesArticle } from './wiki-articles/star-chances.js';
+import { swordsArticle } from './wiki-articles/swords.js';
+import { titansArticle } from './wiki-articles/titans.js';
+import { tokenFarmingGuideArticle } from './wiki-articles/token-farming-guide.js';
+import { upgradesCostsArticle } from './wiki-articles/upgrades-costs.js';
+import { world19PowerProgressionArticle } from './wiki-articles/world-19-power-progression.js';
+import { world20RaidsArticle } from './wiki-articles/world-20-raids.js';
+import { worldBossesArticle } from './wiki-articles/world-bosses.js';
+import { howPowersWorkGuideArticle } from './wiki-articles/how-powers-work-guide.js';
+import { punchMachineQuestGuideArticle } from './wiki-articles/punch-machine-quest-guide.js';
+import { heroLicenseQuestGuideArticle } from './wiki-articles/hero-license-quest-guide.js';
+import { runesGuideArticle } from './wiki-articles/runes-guide.js';
+
+
+export const allWikiArticles = [
+    // World Data
+    world1Data,
+    world2Data,
+    world3Data,
+    world4Data,
+    world5Data,
+    world6Data,
+    world7Data,
+    world8Data,
+    world9Data,
+    world10Data,
+    world11Data,
+    world12Data,
+    world13Data,
+    world14Data,
+    world15Data,
+    world16Data,
+    world17Data,
+    world18Data,
+    world19Data,
+    world20Data,
+    world21Data,
+    world22Data,
+    world23Data,
+    world24Data,
+    world25Data,
+    world26Data,
+    world27Data,
+    worldHalloweenData,
+
+    // Wiki Articles
+    gettingStartedArticle,
+    auraArticle,
+    legendaryWeaponsArticle,
+    guildWarsArticle,
+    prestigeArticle,
+    rankArticle,
+    energyGainPerRankArticle,
+    levelExpArticle,
+    worldBossesArticle,
+    swordsArticle,
+    damageSwordsArticle,
+    world20RaidsArticle,
+    raidRequirementsArticle,
+    gamepassTierListArticle,
+    scientificNotationArticle,
+    scythesArticle,
+    titansArticle,
+    standsArticle,
+    howToGetStrongerArticle,
+    lobbyDungeonsArticle,
+    achievementsGuideArticle,
+    starChancesArticle,
+    upgradesCostsArticle,
+    jewelryCraftingArticle,
+    idealRankPerWorldArticle,
+    tokenFarmingGuideArticle,
+    world19PowerProgressionArticle,
+    halloweenEventGuideArticle,
+    championsIndexArticle,
+    shadowsGuideArticle,
+    limitedPacksGuideArticle,
+    avatarIndexArticle,
+    birthdaySystemArticle,
+    colorsAndIconsGuideArticle,
+    howPowersWorkGuideArticle,
+    punchMachineQuestGuideArticle,
+    heroLicenseQuestGuideArticle,
+    exchangerTokenFarmGuideArticle,
+    runesGuideArticle,
+];

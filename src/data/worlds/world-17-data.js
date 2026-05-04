@@ -1,0 +1,104 @@
+
+export const world17Data = {
+  id: 'world-17',
+  title: 'Mundo 17 - Ilha dos Investigadores',
+  summary: 'Mundo sombrio que introduz os poderes de Investigadores e Kagunes, a progressão de Damage Cells, e a Ghoul Raid.',
+  content: `Este mundo introduz dois novos tipos de poderes gacha: Investigadores (energia) e Kagunes (dano). As progressões principais são através dos poderes "Damage Cells" e "Kagune Leveling".
+
+**Dica para Missões:** Qualquer missão deste mundo que peça para coletar tokens pode ser completada instantaneamente trocando **Exchanger Tokens** pela quantidade necessária ou se você já tiver os tokens no inventário.`,
+  tags: ['investigadores', 'kagune', 'mundo 17', '17', 'guia', 'geral', 'damage cells', 'ghoul raid', 'ghoul mask'],
+  npcs: [
+    { name: 'Ghoul Rank C', rank: 'E', exp: 6e12, hp: '1QnTG' },
+    { name: 'Ghoul Rank B', 'rank': 'D', exp: 9e12, hp: '10QnTG' },
+    { name: 'Ghoul Rank A', rank: 'C', exp: 1.3e13, hp: '100QnTG' },
+    { name: 'Ghoul Rank S', rank: 'B', exp: 1.9e13, hp: '1ssTG' },
+    { name: 'Ghoul Rank SS', rank: 'A', exp: 2.8e13, hp: '10ssTG' },
+    { name: 'Kaneki', rank: 'S', exp: 4.2e13, hp: '343UTG' },
+    { name: 'Arama', rank: 'SS', exp: 8.4e13, hp: '686UTG', drops: { aura: { name: 'Ghoul Aura', probability: 0.05 } }, videoUrl: 'https://cdn.discordapp.com/attachments/1430337273794265250/1430338887196213278/ScreenRecording_10-21-2025_10-58-38_1.mov?ex=68fa1325&is=68f8c1a5&hm=9a34e7f09b898166e0819f706849d7fe410364eac27e09760790a9052a9042c3&' },
+  ],
+  powers: [
+    {
+      name: "Investigators",
+      type: "gacha",
+      statType: "energy",
+      unlockCost: "9sx",
+      stats: [
+          { name: 'Bureau', multiplier: '2x', rarity: 'Comum' },
+          { name: 'Assistants', multiplier: '3x', rarity: 'Incomum' },
+          { name: 'Rank 3', multiplier: '4.5x', rarity: 'Raro' },
+          { name: 'Rank 2', multiplier: '6x', rarity: 'Épico' },
+          { name: 'Rank 1', multiplier: '8x', rarity: 'Lendário' },
+          { name: 'First Class', multiplier: '10x', rarity: 'Mítico' },
+          { name: 'Associate Special Class', multiplier: '12x', rarity: 'Phantom' },
+          { name: 'Special Class', multiplier: '15x', rarity: 'Supremo' },
+      ]
+    },
+    {
+        name: "Kagune",
+        type: "gacha",
+        statType: "damage",
+        unlockCost: "10sx",
+        stats: [
+            { name: 'Retto', multiplier: '1x', rarity: 'Comum' },
+            { name: 'Hakuro', multiplier: '1.5x', rarity: 'Incomum' },
+            { name: 'Shinku', multiplier: '2x', rarity: 'Raro' },
+            { name: 'Tetsuba', multiplier: '3x', rarity: 'Épico' },
+            { name: 'Shidare', multiplier: '5x', rarity: 'Lendário' },
+            { name: 'Hakuja', multiplier: '7x', rarity: 'Mítico' },
+            { name: 'Mukade', multiplier: '9x', rarity: 'Phantom' },
+            { name: 'Koumyaku', multiplier: '12x', rarity: 'Supremo' },
+        ]
+    },
+    {
+        name: "Damage Cells",
+        type: "progression",
+        statType: "damage",
+        maxLevel: 110,
+        maxBoost: "1.10x Damage",
+        unlockCost: "50sx",
+    },
+    {
+        name: "Kagune Leveling",
+        type: "progression",
+        statType: "damage",
+        maxLevel: 50,
+        unlockCost: "5k Kagune Token",
+        description: "Sistema de leveling para o Kagune Power (dano), usando Flesh Tokens. O nível máximo é 50 e o bônus final de dano varia com a raridade da Kagune. No nível máximo (50) com uma Kagune de raridade Suprema, o bônus de dano é 18x."
+    }
+  ],
+  accessories: [
+    { 
+      id: 'ghoul-mask', 
+      name: 'Ghoul Mask', 
+      world: 'Mundo 17', 
+      boss: 'Ghoul Raid', 
+      rarity: 'Variável',
+      description: 'Um acessório que dropa da Ghoul Raid. Os bônus são iguais para Energia, Dano e Moedas, e variam com a raridade.',
+      tables: {
+        bonuses: {
+          headers: ['Raridade', 'Bônus de Energia', 'Bônus de Dano', 'Bônus de Moedas'],
+          rows: [
+            { 'Raridade': 'Comum', 'Bônus de Energia': '1x', 'Bônus de Dano': '1x', 'Bônus de Moedas': '1x' },
+            { 'Raridade': 'Incomum', 'Bônus de Energia': '1.2x', 'Bônus de Dano': '1.2x', 'Bônus de Moedas': '1.2x' },
+            { 'Raridade': 'Raro', 'Bônus de Energia': '1.4x', 'Bônus de Dano': '1.4x', 'Bônus de Moedas': '1.4x' },
+            { 'Raridade': 'Épico', 'Bônus de Energia': '1.6x', 'Bônus de Dano': '1.6x', 'Bônus de Moedas': '1.6x' },
+            { 'Raridade': 'Lendário', 'Bônus de Energia': '1.8x', 'Bônus de Dano': '1.8x', 'Bônus de Moedas': '1.8x' },
+            { 'Raridade': 'Mítico', 'Bônus de Energia': '2.0x', 'Bônus de Dano': '2.0x', 'Bônus de Moedas': '2.0x' },
+            { 'Raridade': 'Phantom', 'Bônus de Energia': '2.4x', 'Bônus de Dano': '2.4x', 'Bônus de Moedas': '2.4x' },
+            { 'Raridade': 'Supremo', 'Bônus de Energia': '3.0x', 'Bônus de Dano': '3.0x', 'Bônus de Moedas': '3.0x' },
+          ]
+        }
+      }
+    }
+  ],
+  dungeons: [
+    { 
+      name: 'Ghoul Raid',
+      type: 'raid', 
+      boss: 'Desconhecido', 
+      description: 'Uma raid no Mundo 17 onde se pode obter o acessório Ghoul Mask e Flesh Tokens.'
+    }
+  ]
+};
+
+    
