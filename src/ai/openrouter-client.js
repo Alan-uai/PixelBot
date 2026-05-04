@@ -1,6 +1,6 @@
 // PixelBot/src/ai/openrouter-client.js
 import { OpenRouter } from '@openrouter/sdk';
-import { tool } from '@openrouter/sdk';
+import { tool } from '@openrouter/sdk/lib/tool.js';
 import { z } from 'zod';
 import { getGameData, getUpdateLog } from '../supabase/index.js';
 
