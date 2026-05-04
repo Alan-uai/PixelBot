@@ -1,7 +1,6 @@
 // src/interactions/buttons/personalizar-gui.js
 import { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { initializeFirebase } from '../../firebase/index.js';
+import { supabase } from '../../supabase/index.js';
 import { personas } from '../../ai/personas.js';
 import { responseStyles } from '../../ai/response-styles.js';
 import { officialLanguages } from '../../ai/official-languages.js';
@@ -10,7 +9,6 @@ import { emojiStyles } from '../../ai/emoji-styles.js';
 
 export const customIdPrefix = 'personalize';
 
-// Mapeamentos para os IDs e dados
 const PANELS = {
     style: {
         id: `${customIdPrefix}_style`,
@@ -27,7 +25,7 @@ const PANELS = {
         default: 'amigavel'
     },
     language: { 
-        id_prefix: `${customIdPrefix}_language`, // Usar um prefixo para IDs únicos
+        id_prefix: `${customIdPrefix}_language`,
         field: 'aiLanguage',
         title: 'Idioma',
         default: 'pt_br'
@@ -46,30 +44,37 @@ const PROFILE_UPDATE_BUTTON_ID = `${customIdPrefix}_profile_update`;
 const PROFILE_CONTEXT_TOGGLE_ID = `${customIdPrefix}_profile_context_toggle`;
 
 
-// Função para buscar ou criar um perfil de usuário
+// Função para buscar ou criar um perfil de usuário no Supabase
 async function getOrCreateUserProfile(userId, username) {
-    const { firestore } = initializeFirebase();
-    const userRef = doc(firestore, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const { data, error } = await supabase
+        .from('bot_config')
+        .select('value')
+        .eq('key', `user_config_${userId}`)
+        .single();
 
-    if (userSnap.exists()) {
-        return userSnap.data();
+    if (data?.value) {
+        return data.value;
     }
     
-    // Se não existe, cria um perfil com valores padrão
     const newUserProfile = {
         id: userId,
         username,
         reputationPoints: 0,
         credits: 0,
-        createdAt: serverTimestamp(),
         aiResponsePreference: 'detailed',
         aiPersonality: 'amigavel',
         aiLanguage: 'pt_br',
         aiEmojiPreference: 'moderate',
         aiUseProfileContext: false,
     };
-    await setDoc(userRef, newUserProfile);
+    
+    await supabase
+        .from('bot_config')
+        .upsert({ 
+            key: `user_config_${userId}`, 
+            value: newUserProfile 
+        });
+    
     return newUserProfile;
 }
 
@@ -79,207 +84,212 @@ export async function openAIPanel(interaction, panelType) {
     const panelConfig = PANELS[panelType];
     if (!panelConfig) return;
 
-    const currentSelection = userData[panelConfig.field] || panelConfig.default;
     const allLanguages = { ...officialLanguages, ...funLanguages };
-
-    const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle(`🎨 Personalizar ${panelConfig.title}`)
-        .setDescription(`Sua configuração atual é: **${(allLanguages[currentSelection] || panelConfig.data?.[currentSelection])?.name}**.\n\nSelecione uma nova opção abaixo. Sua preferência será salva automaticamente.`);
-        
-    const components = [];
-
-    // Lógica especial para o painel de idiomas unificado
+    
     if (panelType === 'language') {
-        const officialMenu = new StringSelectMenuBuilder()
-            .setCustomId(`${PANELS.language.id_prefix}_official`) // ID Único
-            .setPlaceholder('Selecione um idioma oficial...')
-            .addOptions(Object.keys(officialLanguages).map(key => ({
-                label: officialLanguages[key].name,
-                value: key,
-                default: key === currentSelection
-            })));
-        components.push(new ActionRowBuilder().addComponents(officialMenu));
+        const options = Object.entries(allLanguages).map(([key, lang]) => ({
+            label: lang.name,
+            value: key,
+            default: key === userData[panelConfig.field]
+        }));
         
-        const funMenu = new StringSelectMenuBuilder()
-            .setCustomId(`${PANELS.language.id_prefix}_fun`) // ID Único
-            .setPlaceholder('Ou escolha um idioma divertido/fictício...')
-            .addOptions(Object.keys(funLanguages).map(key => ({
-                label: funLanguages[key].name,
-                value: key,
-                default: key === currentSelection
-            })));
-        components.push(new ActionRowBuilder().addComponents(funMenu));
-
-    } else {
-        // Lógica para todos os outros painéis
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(panelConfig.id)
-            .setPlaceholder(`Selecione um(a) ${panelConfig.title}...`)
-            .addOptions(Object.keys(panelConfig.data).map(key => ({
-                label: panelConfig.data[key].name,
-                value: key,
-                default: key === currentSelection
-            })));
-        components.push(new ActionRowBuilder().addComponents(selectMenu));
-    }
+            .setPlaceholder('Selecione um idioma')
+            .addOptions(options);
         
-    if (interaction.isCommand()) {
-        await interaction.reply({
-            embeds: [embed],
-            components: components,
-            ephemeral: true,
-        });
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+        
+        await interaction.reply({ content: `🌍 **${panelConfig.title}**\nSelecione o idioma que você prefere que eu use nas respostas:`, components: [row], ephemeral: true });
     } else {
-         await interaction.update({
-            embeds: [embed],
-            components: components,
-            ephemeral: true,
-        });
+        const options = Object.entries(panelConfig.data).map(([key, item]) => ({
+            label: item.name,
+            value: key,
+            default: key === userData[panelConfig.field]
+        }));
+        
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(panelConfig.id)
+            .setPlaceholder(`Selecione um ${panelConfig.title.toLowerCase()}`)
+            .addOptions(options);
+        
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+        
+        await interaction.reply({ content: `⚙️ **${panelConfig.title}**\nSelecione a opção desejada:`, components: [row], ephemeral: true });
     }
 }
 
-async function handleSelectionChange(interaction, panelConfig) {
-    const { firestore } = initializeFirebase();
-    const userId = interaction.user.id;
-    const selectedValue = interaction.values[0];
-    
+export async function handlePanelSelection(interaction, panelType) {
+    const panelConfig = PANELS[panelType];
     if (!panelConfig) return;
-
-    const userRef = doc(firestore, 'users', userId);
-
-    try {
-        await getOrCreateUserProfile(userId, interaction.user.username);
-        
-        await updateDoc(userRef, {
-            [panelConfig.field]: selectedValue
-        });
-        
-        const allData = { ...responseStyles, ...personas, ...officialLanguages, ...funLanguages, ...emojiStyles };
-        
-        const embed = EmbedBuilder.from(interaction.message.embeds[0])
-            .setDescription(`Sua configuração de ${panelConfig.title.toLowerCase()} atual é: **${allData[selectedValue]?.name}**.\n\nSua preferência foi salva com sucesso!`);
-
-        // Atualiza ambos os menus para refletir a seleção correta
-        const updatedComponents = interaction.message.components.map(row => {
-            const menuComponent = row.components[0];
-            if (menuComponent.type !== 3) return row; // Ignora se não for um menu de seleção
-
-            // Determina qual conjunto de dados usar para este menu
-            let menuData;
-            if (menuComponent.customId.includes('_official')) {
-                menuData = officialLanguages;
-            } else if (menuComponent.customId.includes('_fun')) {
-                menuData = funLanguages;
-            } else {
-                // Para outros painéis que não são de idioma
-                const otherPanelType = Object.keys(PANELS).find(key => menuComponent.customId === PANELS[key].id);
-                menuData = PANELS[otherPanelType]?.data;
-            }
-            
-            if (!menuData) return row; // Se não encontrar dados, mantém o componente original
-
-            const updatedMenu = StringSelectMenuBuilder.from(menuComponent)
-                .setOptions(Object.keys(menuData).map(key => ({
-                    label: menuData[key].name,
-                    value: key,
-                    default: key === selectedValue
-                })));
-            
-            return new ActionRowBuilder().addComponents(updatedMenu);
-        });
-
-        await interaction.update({ embeds: [embed], components: updatedComponents });
-
-    } catch (error) {
-        console.error(`Erro ao salvar preferência de ${panelConfig.title}:`, error);
-        await interaction.followUp({ content: 'Ocorreu um erro ao salvar sua preferência.', ephemeral: true });
-    }
-}
-
-async function handleProfileContextToggle(interaction) {
-    const { firestore } = initializeFirebase();
-    const userId = interaction.user.id;
-    const userRef = doc(firestore, 'users', userId);
-
-    const userData = await getOrCreateUserProfile(userId, interaction.user.username);
-    const newContextState = !(userData.aiUseProfileContext === true);
-
-    await updateDoc(userRef, { aiUseProfileContext: newContextState });
     
-    // Recarrega o painel do perfil para mostrar o estado atualizado
-    const { execute: executePerfil } = await import('../../commands/utility/perfil.js');
-    interaction.isCommand = () => false; // Simula que não é um novo comando
-    interaction.update = (options) => interaction.editReply(options);
-    await executePerfil(interaction);
+    const selectedValue = interaction.values[0];
+    const userId = interaction.user.id;
+    
+    const currentData = await getOrCreateUserProfile(userId, interaction.user.username);
+    currentData[panelConfig.field] = selectedValue;
+    
+    await supabase
+        .from('bot_config')
+        .upsert({ 
+            key: `user_config_${userId}`, 
+            value: currentData 
+        });
+    
+    const panelTitle = panelConfig.title;
+    const selectedLabel = panelType === 'language' 
+        ? (({ ...officialLanguages, ...funLanguages })[selectedValue]?.name || selectedValue)
+        : (panelConfig.data[selectedValue]?.name || selectedValue);
+    
+    await interaction.update({ 
+        content: `✅ **${panelTitle} atualizado!**\n\nNova configuração: **${selectedLabel}**`,
+        components: [],
+        embeds: []
+    });
 }
 
-
-async function openProfileUpdateModal(interaction) {
+export async function openProfileModal(interaction) {
     const userData = await getOrCreateUserProfile(interaction.user.id, interaction.user.username);
     
     const modal = new ModalBuilder()
         .setCustomId(PROFILE_UPDATE_MODAL_ID)
-        .setTitle('Atualizar Dados do Perfil');
-
+        .setTitle('Atualizar Perfil');
+    
+    const customNameInput = new TextInputBuilder()
+        .setCustomId('customName')
+        .setLabel('Nome Personalizado')
+        .setStyle(TextInputStyle.Short)
+        .setValue(userData.customName || '')
+        .setPlaceholder('Como você quer ser chamado?')
+        .setRequired(false);
+    
+    const currentWorldInput = new TextInputBuilder()
+        .setCustomId('currentWorld')
+        .setLabel('Mundo Atual')
+        .setStyle(TextInputStyle.Short)
+        .setValue(userData.currentWorld || '')
+        .setPlaceholder('Ex: World 10')
+        .setRequired(false);
+    
+    const rankInput = new TextInputBuilder()
+        .setCustomId('rank')
+        .setLabel('Seu Rank')
+        .setStyle(TextInputStyle.Short)
+        .setValue(userData.rank || '')
+        .setPlaceholder('Ex: 150')
+        .setRequired(false);
+    
+    const dpsInput = new TextInputBuilder()
+        .setCustomId('dps')
+        .setLabel('Seu DPS (opcional)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(userData.dps || '')
+        .setPlaceholder('Seu DPS estimado')
+        .setRequired(false);
+    
     modal.addComponents(
-        new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('rank').setLabel("Seu Rank Atual no Jogo").setStyle(TextInputStyle.Short).setValue(String(userData.rank || '')).setRequired(false)
-        ),
-        new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('currentWorld').setLabel("Seu Mundo Atual no Jogo").setStyle(TextInputStyle.Short).setValue(String(userData.currentWorld || '')).setRequired(false)
-        ),
-        new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('dps').setLabel("Seu DPS Atual (ex: 100T, 50qd)").setStyle(TextInputStyle.Short).setValue(userData.dps || '').setRequired(false)
-        )
+        new ActionRowBuilder().addComponents(customNameInput),
+        new ActionRowBuilder().addComponents(currentWorldInput),
+        new ActionRowBuilder().addComponents(rankInput),
+        new ActionRowBuilder().addComponents(dpsInput)
     );
+    
     await interaction.showModal(modal);
 }
 
-async function handleProfileUpdateSubmit(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    const { firestore } = initializeFirebase();
-    const userId = interaction.user.id;
-    const userRef = doc(firestore, 'users', userId);
-
-    const rank = interaction.fields.getTextInputValue('rank');
+export async function handleProfileModalSubmit(interaction) {
+    const customName = interaction.fields.getTextInputValue('customName');
     const currentWorld = interaction.fields.getTextInputValue('currentWorld');
+    const rank = interaction.fields.getTextInputValue('rank');
     const dps = interaction.fields.getTextInputValue('dps');
-
-    try {
-        await updateDoc(userRef, {
-            rank: parseInt(rank, 10) || null,
-            currentWorld: parseInt(currentWorld, 10) || null,
-            dps: dps || null
+    
+    const userId = interaction.user.id;
+    const currentData = await getOrCreateUserProfile(userId, interaction.user.username);
+    
+    if (customName) currentData.customName = customName;
+    if (currentWorld) currentData.currentWorld = currentWorld;
+    if (rank) currentData.rank = rank;
+    if (dps) currentData.dps = dps;
+    
+    await supabase
+        .from('bot_config')
+        .upsert({ 
+            key: `user_config_${userId}`, 
+            value: currentData 
         });
-        await interaction.editReply('✅ Seu perfil foi atualizado com sucesso!');
-        
-    } catch (error) {
-        console.error("Erro ao atualizar perfil:", error);
-        await interaction.editReply('❌ Ocorreu um erro ao atualizar seu perfil.');
-    }
+    
+    await interaction.reply({ content: '✅ **Perfil atualizado com sucesso!**', ephemeral: true });
 }
 
+export async function toggleProfileContext(interaction) {
+    const userData = await getOrCreateUserProfile(interaction.user.id, interaction.user.username);
+    const newValue = !userData.aiUseProfileContext;
+    
+    userData.aiUseProfileContext = newValue;
+    
+    await supabase
+        .from('bot_config')
+        .upsert({ 
+            key: `user_config_${interaction.user.id}`, 
+            value: userData 
+        });
+    
+    await interaction.update({ 
+        content: newValue 
+            ? '✅ **Contexto do perfil ativado!**\n\nAgora eu considerarei seu mundo atual, rank e DPS ao responder suas perguntas.'
+            : '❌ **Contexto do perfil desativado.**\n\nAs respostas serão mais genéricas, sem considerar seu progresso específico.',
+        components: [],
+        embeds: []
+    });
+}
 
-export async function handleInteraction(interaction, container) {
-    const customId = interaction.customId;
-
-    if (interaction.isStringSelectMenu()) {
-        const panelTypeKey = Object.keys(PANELS).find(key => customId.startsWith(PANELS[key].id_prefix || PANELS[key].id));
-        if (panelTypeKey) {
-            await handleSelectionChange(interaction, PANELS[panelTypeKey]);
-        }
-    }
-    else if (interaction.isButton()) {
-        if (customId === PROFILE_CONTEXT_TOGGLE_ID) {
-             await handleProfileContextToggle(interaction);
-        } else if (customId === PROFILE_UPDATE_BUTTON_ID) {
-            await openProfileUpdateModal(interaction);
-        }
-    }
-    else if (interaction.isModalSubmit()) {
-        if (customId === PROFILE_UPDATE_MODAL_ID) {
-            await handleProfileUpdateSubmit(interaction);
-        }
-    }
+export async function createPersonalizationMainMenu(interaction) {
+    const userData = await getOrCreateUserProfile(interaction.user.id, interaction.user.username);
+    
+    const embed = new EmbedBuilder()
+        .setTitle('⚙️ Personalização do Assistente')
+        .setDescription('Configure como o Gui deve interagir com você:')
+        .setColor(0x5865F2)
+        .addFields(
+            { name: '🎨 Estilo de Resposta', value: responseStyles[userData.aiResponsePreference]?.name || 'Padrão', inline: true },
+            { name: '😀 Personalidade', value: personas[userData.aiPersonality]?.name || 'Padrão', inline: true },
+            { name: '🌍 Idioma', value: (({ ...officialLanguages, ...funLanguages })[userData.aiLanguage]?.name || 'Padrão'), inline: true },
+            { name: '😎 Emojis', value: emojiStyles[userData.aiEmojiPreference]?.name || 'Padrão', inline: true },
+            { name: '📊 Contextualizar', value: userData.aiUseProfileContext ? '✅ Ativado' : '❌ Desativado', inline: true }
+        );
+    
+    const styleButton = new ButtonBuilder()
+        .setCustomId('personalize_style')
+        .setLabel('🎨 Estilo')
+        .setStyle(ButtonStyle.Secondary);
+    
+    const personaButton = new ButtonBuilder()
+        .setCustomId('personalize_persona')
+        .setLabel('😀 Personalidade')
+        .setStyle(ButtonStyle.Secondary);
+    
+    const languageButton = new ButtonBuilder()
+        .setCustomId('personalize_language')
+        .setLabel('🌍 Idioma')
+        .setStyle(ButtonStyle.Secondary);
+    
+    const emojiButton = new ButtonBuilder()
+        .setCustomId('personalize_emoji')
+        .setLabel('😎 Emojis')
+        .setStyle(ButtonStyle.Secondary);
+    
+    const profileButton = new ButtonBuilder()
+        .setCustomId(PROFILE_UPDATE_BUTTON_ID)
+        .setLabel('📝 Meu Perfil')
+        .setStyle(ButtonStyle.Primary);
+    
+    const contextButton = new ButtonBuilder()
+        .setCustomId(PROFILE_CONTEXT_TOGGLE_ID)
+        .setLabel('📊 Contextualizar')
+        .setStyle(ButtonStyle.Secondary);
+    
+    const firstRow = new ActionRowBuilder().addComponents(styleButton, personaButton, languageButton, emojiButton);
+    const secondRow = new ActionRowBuilder().addComponents(profileButton, contextButton);
+    
+    await interaction.reply({ embeds: [embed], components: [firstRow, secondRow], ephemeral: true });
 }

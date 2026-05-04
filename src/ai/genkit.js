@@ -1,8 +1,13 @@
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
+// src/ai/genkit.js
+import { genkit } from 'genkit';
+import { openrouter } from '@genkit-ai/openrouter';
 import 'dotenv/config';
 
 export const ai = genkit({
-  plugins: [googleAI({apiKey: process.env.GEMINI_API_KEY})],
-  model: 'googleai/gemini-2.5-flash',
+  plugins: [
+    openrouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+    }),
+  ],
+  model: 'minimax/minimax-m2.5:free',
 });
