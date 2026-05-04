@@ -8,19 +8,16 @@ const openRouter = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const MODEL_FALLBACK_CHAIN = [
-  'openai/gpt-4o-mini',
-  'minimax/minimax-m2.5:free',
-  'google/gemini-flash-1.5',
-  'anthropic/claude-3.5-haiku',
-];
+const FALLBACK_CHAIN = (process.env.FALLBACK_CHAIN ||
+  'openai/gpt-4o-mini,minimax/minimax-m2.5:free,google/gemini-flash-1.5,anthropic/claude-3.5-haiku'
+).split(',').map(m => m.trim()).filter(Boolean);
 
 export const GENERIC_ERROR_MESSAGE = 'Desculpe não pude te responder, porém acredito que @suporte pode te ajudar';
 
 async function withFallback(fn, preferredModel) {
   const modelsToTry = preferredModel 
-    ? [preferredModel, ...MODEL_FALLBACK_CHAIN.filter(m => m !== preferredModel)]
-    : [...MODEL_FALLBACK_CHAIN];
+    ? [preferredModel, ...FALLBACK_CHAIN.filter(m => m !== preferredModel)]
+    : [...FALLBACK_CHAIN];
   
   let lastError;
   for (const model of modelsToTry) {
