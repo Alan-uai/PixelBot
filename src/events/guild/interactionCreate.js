@@ -1,6 +1,7 @@
 // src/events/guild/interactionCreate.js
 import { Events } from 'discord.js';
-import { officialLanguages, funLanguages } from '../../ai/official-languages.js';
+import { officialLanguages } from '../../ai/official-languages.js';
+import { funLanguages } from '../../ai/fun-languages.js';
 import { personas } from '../../ai/personas.js';
 import { responseStyles } from '../../ai/response-styles.js';
 import { emojiStyles } from '../../ai/emoji-styles.js';

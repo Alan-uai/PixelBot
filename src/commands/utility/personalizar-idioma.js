@@ -1,6 +1,7 @@
 // src/commands/utility/personalizar-idioma.js
 import { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
-import { officialLanguages, funLanguages } from '../../ai/official-languages.js';
+import { officialLanguages } from '../../ai/official-languages.js';
+import { funLanguages } from '../../ai/fun-languages.js';
 
 export const data = new SlashCommandBuilder()
     .setName('personalizar-idioma')
