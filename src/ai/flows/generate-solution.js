@@ -1,5 +1,5 @@
 // PixelBot/src/ai/flows/generate-solution.js
-import { chatStructured } from '../openrouter-client.js';
+import { chatWithTools } from '../openrouter-client.js';
 import { z } from 'zod';
 import { officialLanguages } from '../official-languages.js';
 import { funLanguages } from '../fun-languages.js';
@@ -120,7 +120,7 @@ Descrição do Problema: ${input.problemDescription}`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      model: 'openai/gpt-4o-mini',
+      model: 'minimax/minimax-m2.5:free',
       temperature: 0.3,
     });
 

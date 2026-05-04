@@ -92,7 +92,7 @@ Gere o objeto JSON com \`filePath\`, \`fileContent\`, e \`reasoning\` para atual
         { role: 'system', content: 'Você é um especialista em gerar código JavaScript e arquitetar dados. Sempre responda em JSON válido.' },
         { role: 'user', content: userPrompt },
       ],
-      model: 'openai/gpt-4o-mini',
+      model: 'minimax/minimax-m2.5:free',
       temperature: 0.3,
     });
 
