@@ -1,8 +1,7 @@
 // src/events/guild/messageCreate.js
-import { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, AttachmentBuilder } from 'discord.js';
+import { Events, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import axios from 'axios';
 import { generateSolution } from '../../ai/flows/generate-solution.js';
-import { createTableImage } from '../../utils/createTableImage.js';
 import { supabase } from '../../supabase/index.js';
 import { personas } from '../../ai/personas.js';
 import { responseStyles } from '../../ai/response-styles.js';
@@ -11,8 +10,23 @@ import { funLanguages } from '../../ai/fun-languages.js';
 import { emojiStyles } from '../../ai/emoji-styles.js';
 
 
-// Função para enviar a resposta consolidada
-async function sendConsolidatedReply(message, content, attachments) {
+function formatTableAsText(headers, rows) {
+    const colWidths = headers.map((h, i) => {
+        const maxContent = Math.max(...rows.map(r => String(r[headers[i]] || '').length));
+        return Math.max(h.length, maxContent);
+    });
+    
+    const headerRow = headers.map((h, i) => h.padEnd(colWidths[i])).join(' | ');
+    const divider = colWidths.map(w => '-'.repeat(w)).join('-+-');
+    const dataRows = rows.map(r => 
+        headers.map((h, i) => String(r[headers[i]] || '').padEnd(colWidths[i])).join(' | ')
+    );
+    
+    return `\`\`\`\n${headerRow}\n${divider}\n${dataRows.join('\n')}\n\`\`\``;
+}
+
+
+async function sendConsolidatedReply(message, content, tableText) {
     const feedbackRow = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder().setCustomId(`feedback_like_${message.id}`).setLabel('👍').setStyle(ButtonStyle.Success),
@@ -21,70 +35,27 @@ async function sendConsolidatedReply(message, content, attachments) {
 
     const options = {
         content: content || null,
-        files: attachments,
         components: [feedbackRow]
     };
     
-    return await message.reply(options);
+    const replyMessage = await message.reply(options);
+    
+    if (tableText) {
+        await message.channel.send(tableText);
+    }
+    
+    return replyMessage;
 }
 
 
-// Função principal do evento
 export const name = Events.MessageCreate;
 
 export async function execute(message) {
     const { client, config, logger, services } = message.client.container;
     const { wikiContext, supabase: supabaseClient } = services;
 
-    // 1. Ignorar todas as mensagens de bots
     if (message.author.bot) return;
 
-    // 2. Processar Respostas da Comunidade (Apenas no canal de ajuda)
-    if (message.channel.id === config.COMMUNITY_HELP_CHANNEL_ID && message.reference) {
-        try {
-            const repliedToMessage = await message.channel.messages.fetch(message.reference.messageId);
-            const originalCurationMessageId = client.container.interactions.get(`curation_id_for_help_${repliedToMessage.id}`);
-            
-            if (repliedToMessage.author.id === client.user.id && originalCurationMessageId) {
-                const modChannel = await client.channels.fetch(config.MOD_CURATION_CHANNEL_ID);
-                const questionMessageInModChannel = await modChannel.messages.fetch(originalCurationMessageId);
-
-                if (questionMessageInModChannel) {
-                    let suggestedAnswers = client.container.interactions.get(`suggested_answers_${originalCurationMessageId}`) || [];
-                    suggestedAnswers.push({
-                        user: message.author.username,
-                        userId: message.author.id,
-                        content: message.content
-                    });
-                    client.container.interactions.set(`suggested_answers_${originalCurationMessageId}`, suggestedAnswers);
-                    
-                    const selectMenu = new StringSelectMenuBuilder()
-                        .setCustomId(`curate_select_${originalCurationMessageId}`)
-                        .setPlaceholder('Analisar uma resposta sugerida...')
-                        .addOptions(suggestedAnswers.map((answer, index) => ({
-                            label: `Resposta de: ${answer.user}`,
-                            description: answer.content.substring(0, 50) + '...',
-                            value: `answer_${index}`
-                        })));
-                    
-                    const menuRow = new ActionRowBuilder().addComponents(selectMenu);
-                    const buttonRow = questionMessageInModChannel.components[0];
-                    
-                    const updatedEmbed = EmbedBuilder.from(questionMessageInModChannel.embeds[0])
-                         .setColor(0xFFA500)
-                         .setFooter({ text: `${suggestedAnswers.length} resposta(s) da comunidade aguardando análise.`});
-
-                    await questionMessageInModChannel.edit({ embeds: [updatedEmbed], components: [menuRow, buttonRow] });
-                    await message.react('👍');
-                }
-            }
-        } catch (error) {
-            logger.error("Erro ao processar resposta da comunidade:", error);
-        }
-        return;
-    }
-
-    // 3. Processar Menções ao Bot (Apenas no canal de chat)
     if (message.channel.id === config.CHAT_CHANNEL_ID && message.mentions.has(client.user.id) && !message.mentions.everyone) {
         const question = message.content.replace(/<@!?(\d+)>/g, '').trim();
         const imageAttachment = message.attachments.find(att => att.contentType?.startsWith('image/'));
@@ -110,7 +81,6 @@ export async function execute(message) {
         }
 
         try {
-            // Buscar configurações do usuário no Supabase
             const { data: userData } = await supabaseClient
                 .from('bot_config')
                 .select('value')
@@ -180,7 +150,7 @@ export async function execute(message) {
                 await message.reply(result.structuredResponse[0].conteudo);
             } else {
                 let finalContent = '';
-                const finalAttachments = [];
+                let tableText = null;
 
                 for (const section of result.structuredResponse) {
                     if (section.titulo) finalContent += `**${section.titulo}**\n`;
@@ -188,12 +158,10 @@ export async function execute(message) {
 
                     if (section.table && section.table.rows && section.table.rows.length > 0) {
                         try {
-                            const tableImage = await createTableImage(section.table.headers, section.table.rows);
-                            const attachment = new AttachmentBuilder(tableImage, { name: `table-${section.titulo?.toLowerCase().replace(/\s/g, '-') || 'data'}.png` });
-                            finalAttachments.push(attachment);
+                            tableText = formatTableAsText(section.table.headers, section.table.rows);
                         } catch (tableError) {
-                            logger.error("Erro ao gerar imagem da tabela:", tableError);
-                            finalContent += `*(Erro ao renderizar a tabela "${section.titulo}" como imagem.)*\n\n`;
+                            logger.error("Erro ao formatar a tabela:", tableError);
+                            finalContent += `*(Erro ao renderizar a tabela "${section.titulo}".)*\n\n`;
                         }
                     }
                 }
@@ -212,12 +180,12 @@ export async function execute(message) {
                         currentChunk = currentChunk.substring(cutIndex);
                     }
 
-                    replyMessage = await sendConsolidatedReply(message, chunks[0], finalAttachments);
+                    replyMessage = await sendConsolidatedReply(message, chunks[0], tableText);
                     for (let i = 1; i < chunks.length; i++) {
                         await message.channel.send(chunks[i]);
                     }
                 } else {
-                    replyMessage = await sendConsolidatedReply(message, finalContent, finalAttachments);
+                    replyMessage = await sendConsolidatedReply(message, finalContent, tableText);
                 }
                 
                 client.container.interactions.set(`question_${message.id}`, question);

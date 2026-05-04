@@ -1,7 +1,7 @@
 // src/ai/flows/generate-solution.js
 import { ai } from '../genkit.js';
 import { z } from 'zod';
-import { getGameData, getUpdateLog } from '../../firebase/firestore/data.js';
+import { getGameData, getUpdateLog } from '../../supabase/index.js';
 import { officialLanguages } from '../official-languages.js';
 import { funLanguages } from '../fun-languages.js';
 import { personas } from '../personas.js';

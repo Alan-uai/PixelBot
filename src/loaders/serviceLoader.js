@@ -1,11 +1,10 @@
 // src/loaders/serviceLoader.js
 import { supabase } from '../supabase/index.js';
 import { WikiService } from '../services/wikiService.js';
-import { ImageGenerationService } from '../services/imageGenerationService.js';
 import { DataCompilerService } from '../services/dataCompiler.js';
 
 export async function loadServices(container) {
-    const { logger, services, config } = container;
+    const { logger, services } = container;
 
     // Supabase Service
     try {
@@ -34,13 +33,5 @@ export async function loadServices(container) {
     } catch (error) {
         logger.error('Falha ao inicializar o serviço da Base de Conhecimento:', error);
         throw error;
-    }
-    
-    // Image Generation Service (sem assets, apenas geração básica)
-    try {
-        services.imageGenerator = new ImageGenerationService(null, logger);
-        logger.info('Serviço de Geração de Imagem inicializado.');
-    } catch(error) {
-        logger.error('Falha ao inicializar o serviço de Geração de Imagem:', error);
     }
 }
