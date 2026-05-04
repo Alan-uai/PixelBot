@@ -8,6 +8,32 @@ const openRouter = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
+const MODEL_FALLBACK_CHAIN = [
+  'openai/gpt-4o-mini',
+  'minimax/minimax-m2.5:free',
+  'google/gemini-flash-1.5',
+  'anthropic/claude-3.5-haiku',
+];
+
+export const GENERIC_ERROR_MESSAGE = 'Desculpe não pude te responder, porém acredito que @suporte pode te ajudar';
+
+async function withFallback(fn, preferredModel) {
+  const modelsToTry = preferredModel 
+    ? [preferredModel, ...MODEL_FALLBACK_CHAIN.filter(m => m !== preferredModel)]
+    : [...MODEL_FALLBACK_CHAIN];
+  
+  let lastError;
+  for (const model of modelsToTry) {
+    try {
+      return await fn(model);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Model ${model} failed, trying next fallback:`, error);
+    }
+  }
+  throw new Error(GENERIC_ERROR_MESSAGE);
+}
+
 // Definição das tools usando Zod schemas
 const getGameDataTool = tool({
   name: 'getGameData',
@@ -33,50 +59,53 @@ const getUpdateLogTool = tool({
   }
 });
 
-export async function chat({ messages, model = 'minimax/minimax-m2.5:free', temperature = 0.7, maxTokens }) {
-  const result = await openRouter.chat.send({
-    chatRequest: {
-      messages,
-      model,
-      temperature,
-      maxTokens,
-    }
-  });
-
-  return result.choices[0].message.content;
+export async function chat({ messages, model, temperature = 0.7, maxTokens }) {
+  return withFallback(async (currentModel) => {
+    const result = await openRouter.chat.send({
+      chatRequest: {
+        messages,
+        model: currentModel,
+        temperature,
+        maxTokens,
+      }
+    });
+    return result.choices[0].message.content;
+  }, model);
 }
 
-export async function chatStructured({ messages, model = 'minimax/minimax-m2.5:free', temperature = 0.7 }) {
-  const result = await openRouter.chat.send({
-    chatRequest: {
-      messages,
-      model,
-      temperature,
-      responseFormat: { type: 'json_object' },
-    }
-  });
-
-  return result.choices[0].message.content;
+export async function chatStructured({ messages, model, temperature = 0.7 }) {
+  return withFallback(async (currentModel) => {
+    const result = await openRouter.chat.send({
+      chatRequest: {
+        messages,
+        model: currentModel,
+        temperature,
+        responseFormat: { type: 'json_object' },
+      }
+    });
+    return result.choices[0].message.content;
+  }, model);
 }
 
 export async function chatWithTools({
   messages,
-  model = 'minimax/minimax-m2.5:free',
+  model,
   temperature = 0.7,
   tools = [getGameDataTool, getUpdateLogTool],
   maxToolRounds = 5,
 }) {
-  const result = await openRouter.callModel({
-    chatRequest: {
-      messages,
-      model,
-      temperature,
-    },
-    tools: tools,
-    maxToolRounds,
-  });
-
-  return result;
+  return withFallback(async (currentModel) => {
+    const result = await openRouter.callModel({
+      chatRequest: {
+        messages,
+        model: currentModel,
+        temperature,
+      },
+      tools: tools,
+      maxToolRounds,
+    });
+    return result;
+  }, model);
 }
 
 export { openRouter, getGameDataTool, getUpdateLogTool };
