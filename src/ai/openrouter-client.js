@@ -2,7 +2,7 @@
 import { OpenRouter } from '@openrouter/sdk';
 import { tool } from '@openrouter/sdk';
 import { z } from 'zod';
-import { getGameData, getUpdateLog } from '../../supabase/index.js';
+import { getGameData, getUpdateLog } from '../supabase/index.js';
 
 const openRouter = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
