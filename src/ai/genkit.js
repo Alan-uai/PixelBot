@@ -1,13 +1,14 @@
 // src/ai/genkit.js
 import { genkit } from 'genkit';
-import { openrouter } from '@genkit-ai/openrouter';
-import 'dotenv/config';
+import { openAICompatible } from '@genkit-ai/compat-oai';
 
 export const ai = genkit({
   plugins: [
-    openrouter({
+    openAICompatible({
+      name: 'openrouter',
       apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: 'https://openrouter.ai/api/v1',
     }),
   ],
-  model: 'minimax/minimax-m2.5:free',
+  model: 'openrouter/minimax/minimax-m2.5:free',
 });
