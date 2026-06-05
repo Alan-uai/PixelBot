@@ -1,5 +1,4 @@
-// src/services/dataCompiler.js
-import { allWikiArticles } from '../data/wiki-data.js';
+import { loadWikiArticles } from '../data/wiki-data.js';
 
 function normalizeId(name) {
     if (!name) return null;
@@ -7,25 +6,46 @@ function normalizeId(name) {
 }
 
 export class DataCompilerService {
-    constructor(logger) {
+    constructor({ supabase, logger }) {
         this.logger = logger;
-        this.compiledData = [];
-        this.compile();
+        this.supabase = supabase;
+        this.cache = new Map();
     }
 
-    compile() {
-        this.logger.info('[DataCompiler] Compilando e processando todos os dados brutos do jogo...');
-        
-        this.compiledData = allWikiArticles.map(article => {
-            const articleId = article.id;
-            let processedArticle = { ...article };
+    async getCompiledData(tenantId) {
+        if (!tenantId) {
+            this.logger.warn('[DataCompiler] tenantId não fornecido, usando fallback JSON');
+            const articles = await loadWikiArticles(null, null);
+            return this.processArticles(articles);
+        }
 
-            if (articleId.startsWith('world-')) {
-                const worldNumber = articleId.split('-')[1];
-                const paddedWorldId = worldNumber.padStart(3, '0');
-                
+        if (this.cache.has(tenantId)) {
+            return this.cache.get(tenantId);
+        }
+
+        this.logger.info(`[DataCompiler] Compilando dados do tenant ${tenantId}...`);
+        const articles = await loadWikiArticles(this.supabase, tenantId);
+        const compiled = this.processArticles(articles);
+
+        this.cache.set(tenantId, compiled);
+        this.logger.info(`[DataCompiler] ${compiled.length} artigos compilados para tenant ${tenantId}.`);
+        return compiled;
+    }
+
+    invalidateCache(tenantId) {
+        if (tenantId) {
+            this.cache.delete(tenantId);
+        } else {
+            this.cache.clear();
+        }
+    }
+
+    processArticles(articles) {
+        return articles.map(article => {
+            const processedArticle = { ...article };
+
+            if (article.id && article.id.startsWith('world-')) {
                 processedArticle.type = 'world';
-                processedArticle.worldId = paddedWorldId;
 
                 const subCollectionKeys = ['npcs', 'pets', 'powers', 'accessories', 'dungeons', 'shadows', 'stands', 'ghouls', 'obelisks', 'missions', 'dailyQuests'];
                 const subCollections = {};
@@ -35,31 +55,17 @@ export class DataCompilerService {
                         subCollections[key] = processedArticle[key].map(item => {
                             const newItem = { ...item };
                             newItem.id = normalizeId(item.id || item.name);
-
-                            if (key === 'powers' && Array.isArray(item.stats)) {
-                                newItem.stats = item.stats.map(stat => ({
-                                    ...stat,
-                                    id: normalizeId(stat.id || stat.name)
-                                }));
-                            }
                             return newItem;
                         });
-                        // Remove the original array from the top-level article object
                         delete processedArticle[key];
                     }
                 }
-                 processedArticle.subCollections = subCollections;
+                processedArticle.subCollections = subCollections;
             } else {
                 processedArticle.type = 'wiki_article';
             }
-            
+
             return processedArticle;
         });
-
-        this.logger.info(`[DataCompiler] Compilação concluída. ${this.compiledData.length} artigos/mundos processados.`);
-    }
-
-    getCompiledData() {
-        return this.compiledData;
     }
 }

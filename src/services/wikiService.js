@@ -1,5 +1,3 @@
-// src/services/wikiService.js
-
 function formatValue(value, indentLevel = 0) {
     const indent = '  '.repeat(indentLevel);
     if (Array.isArray(value)) {
@@ -16,12 +14,11 @@ function formatValue(value, indentLevel = 0) {
 function formatArticle(article) {
     let content = `INÍCIO DO ARTIGO: ${article.title}\n`;
     content += `RESUMO: ${article.summary}\n`;
-    
+
     if (article.content) {
         content += `CONTEÚDO:\n${article.content}\n\n`;
     }
 
-    // Chaves que já foram tratadas ou não devem ser iteradas como seções
     const excludedKeys = ['id', 'title', 'summary', 'content', 'type', 'worldId', 'subCollections'];
 
     for (const key in article) {
@@ -31,8 +28,7 @@ function formatArticle(article) {
         content += `SEÇÃO: ${key.toUpperCase()}\n`;
         content += `${formatValue(value, 1)}\n\n`;
     }
-    
-    // Processa sub-coleções de mundos
+
     if (article.subCollections) {
         for (const [collectionName, items] of Object.entries(article.subCollections)) {
             content += `SEÇÃO: ${collectionName.toUpperCase()}\n`;
@@ -43,7 +39,6 @@ function formatArticle(article) {
                     if (prop === 'id' || prop === 'name') continue;
                     const propValue = item[prop];
                     if (propValue !== undefined && propValue !== null) {
-                         // A formatação de stats aninhados é cuidada pelo formatValue
                         content += `  - ${prop}: ${formatValue(propValue, 2)}\n`;
                     }
                 }
@@ -52,28 +47,43 @@ function formatArticle(article) {
         }
     }
 
-
     content += 'FIM DO ARTIGO\n';
     return content;
 }
-
 
 export class WikiService {
     constructor(dataCompiler, logger) {
         this.logger = logger;
         this.dataCompiler = dataCompiler;
-        this.knowledgeContext = '';
-        this.compileKnowledgeBase();
+        this.contextCache = new Map();
     }
 
-    compileKnowledgeBase() {
-        this.logger.info('[WikiService] Compilando a base de conhecimento a partir dos dados processados...');
-        const compiledData = this.dataCompiler.getCompiledData();
-        this.knowledgeContext = compiledData.map(formatArticle).join('\n---\n');
-        this.logger.info('[WikiService] Base de conhecimento para IA compilada com sucesso.');
+    async getContext(tenantId) {
+        if (!tenantId) {
+            this.logger.warn('[WikiService] tenantId não fornecido, retornando contexto vazio.');
+            return '';
+        }
+
+        if (this.contextCache.has(tenantId)) {
+            return this.contextCache.get(tenantId);
+        }
+
+        this.logger.info(`[WikiService] Compilando base de conhecimento para tenant ${tenantId}...`);
+        const compiledData = await this.dataCompiler.getCompiledData(tenantId);
+        const knowledgeContext = compiledData.map(formatArticle).join('\n---\n');
+
+        this.contextCache.set(tenantId, knowledgeContext);
+        this.logger.info(`[WikiService] Base de conhecimento para tenant ${tenantId} compilada.`);
+        return knowledgeContext;
     }
 
-    getContext() {
-        return this.knowledgeContext;
+    invalidateCache(tenantId) {
+        if (tenantId) {
+            this.contextCache.delete(tenantId);
+            this.dataCompiler.invalidateCache(tenantId);
+        } else {
+            this.contextCache.clear();
+            this.dataCompiler.invalidateCache();
+        }
     }
 }

@@ -1,8 +1,7 @@
-// PixelBot/src/ai/openrouter-client.js
 import { OpenRouter } from '@openrouter/sdk';
 import { tool } from '@openrouter/sdk/lib/tool.js';
 import { z } from 'zod';
-import { getGameData, getUpdateLog } from '../supabase/index.js';
+import { getGameData } from '../supabase/index.js';
 
 const openRouter = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -15,10 +14,10 @@ const FALLBACK_CHAIN = (process.env.FALLBACK_CHAIN ||
 export const GENERIC_ERROR_MESSAGE = 'Desculpe não pude te responder, porém acredito que @suporte pode te ajudar';
 
 async function withFallback(fn, preferredModel) {
-  const modelsToTry = preferredModel 
+  const modelsToTry = preferredModel
     ? [preferredModel, ...FALLBACK_CHAIN.filter(m => m !== preferredModel)]
     : [...FALLBACK_CHAIN];
-  
+
   let lastError;
   for (const model of modelsToTry) {
     try {
@@ -31,30 +30,20 @@ async function withFallback(fn, preferredModel) {
   throw new Error(GENERIC_ERROR_MESSAGE);
 }
 
-// Definição das tools usando Zod schemas
-const getGameDataTool = tool({
-  name: 'getGameData',
-  description: 'Get information about game content like powers, NPCs, pets, accessories, or dungeons from a specific world.',
-  inputSchema: z.object({
-    worldName: z.string().describe('The name of the world to search in (e.g., "World 1", "Windmill Island").'),
-    category: z.string().describe('The category of information to get (e.g., "powers", "npcs", "pets", "accessories", "dungeons", "missions").'),
-    itemName: z.string().optional().describe('The specific name of the item to look for (e.g., "Grand Elder Power"). Be flexible; if an exact match fails, try a partial name.'),
-  }),
-  outputSchema: z.unknown(),
-  execute: async (params) => {
-    return await getGameData(params.worldName, params.category, params.itemName);
-  }
-});
-
-const getUpdateLogTool = tool({
-  name: 'getUpdateLog',
-  description: 'Gets the latest game update log. Use this when the user asks "what is the new update?", "what changed?", "update log", etc.',
-  inputSchema: z.object({}),
-  outputSchema: z.unknown(),
-  execute: async () => {
-    return await getUpdateLog();
-  }
-});
+function createGetGameDataTool(tenantId) {
+  return tool({
+    name: 'getGameData',
+    description: 'Get information about game content like weapons, armors, rings, potions, upgrades, enemies, bosses, worlds, or codes.',
+    inputSchema: z.object({
+      table: z.string().describe('The game table to search (e.g., "weapons", "armors", "rings", "potions", "upgrades", "enemies", "bosses", "worlds", "codes").'),
+      search: z.string().optional().describe('Optional search term to filter by name or description. Be flexible with partial matches.'),
+    }),
+    outputSchema: z.unknown(),
+    execute: async (params) => {
+      return await getGameData(params.table, params.search, tenantId);
+    }
+  });
+}
 
 export async function chat({ messages, model, temperature = 0.7, maxTokens }) {
   return withFallback(async (currentModel) => {
@@ -88,9 +77,11 @@ export async function chatWithTools({
   messages,
   model,
   temperature = 0.7,
-  tools = [getGameDataTool, getUpdateLogTool],
+  tenantId,
   maxToolRounds = 5,
 }) {
+  const tools = tenantId ? [createGetGameDataTool(tenantId)] : [];
+
   return withFallback(async (currentModel) => {
     const result = await openRouter.callModel({
       chatRequest: {
@@ -105,4 +96,4 @@ export async function chatWithTools({
   }, model);
 }
 
-export { openRouter, getGameDataTool, getUpdateLogTool };
+export { openRouter };

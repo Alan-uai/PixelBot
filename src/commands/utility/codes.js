@@ -1,5 +1,5 @@
-// src/commands/utility/codes.js
 import { SlashCommandBuilder } from 'discord.js';
+import { fetchCodes, resolveGuildTenant } from '../../supabase/index.js';
 
 export const data = new SlashCommandBuilder()
     .setName('codes')
@@ -8,29 +8,40 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction, container) {
     await interaction.deferReply({ ephemeral: true });
 
-    const { services } = container;
-    const { supabase } = services;
+    const { logger } = container;
 
     try {
-        const { data, error } = await supabase
-            .from('bot_config')
-            .select('value')
-            .eq('key', 'gameCodes')
-            .single();
+        let tenantId = null;
 
-        if (error || !data?.value?.codes || data.value.codes.length === 0) {
+        if (interaction.guildId) {
+            const guildTenant = await resolveGuildTenant(interaction.guildId);
+            if (guildTenant) {
+                tenantId = guildTenant.tenantId;
+            }
+        }
+
+        if (!tenantId) {
+            return interaction.editReply('Nenhum tenant encontrado para este servidor.');
+        }
+
+        const codes = await fetchCodes(tenantId);
+
+        if (!codes || codes.length === 0) {
             return interaction.editReply('Nenhum código ativo encontrado no momento.');
         }
 
-        const codes = data.value.codes;
-        const formattedCodes = codes.map(code => `• \`${code}\``).join('\n');
+        const formattedCodes = codes.map(c => {
+            const rewards = c.rewards || c.reward_type || '';
+            const type = c.type ? `[${c.type}]` : '';
+            return `• \`${c.code}\` ${type} ${rewards}`;
+        }).join('\n');
 
-        const messageContent = `**Códigos Ativos do Jogo**\n\n${formattedCodes}`;
-
-        await interaction.editReply({ content: messageContent });
+        await interaction.editReply({
+            content: `**Códigos Ativos**\n\n${formattedCodes}`,
+        });
 
     } catch (error) {
-        console.error('Erro ao buscar códigos:', error);
+        logger.error('Erro ao buscar códigos:', error);
         await interaction.editReply('Ocorreu um erro ao buscar a lista de códigos.');
     }
 }

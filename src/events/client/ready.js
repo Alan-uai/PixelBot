@@ -1,16 +1,14 @@
-// src/events/client/ready.js
 import { Events, REST, Routes } from 'discord.js';
-import { supabase } from '../../supabase/index.js';
 
 export const name = Events.ClientReady;
 export const once = true;
 
 export async function execute(client, container) {
-    const { logger, commands, config } = container;
-    
+    const { logger, commands, config, services } = container;
+    const { tenantConfig } = services;
+
     logger.info(`Pronto! Logado como ${client.user.tag}`);
-    
-    // Deploy de comandos do Discord
+
     const rest = new REST().setToken(config.DISCORD_TOKEN);
     const commandData = Array.from(commands.values()).map(c => c.data.toJSON ? c.data.toJSON() : c.data);
 
@@ -24,6 +22,19 @@ export async function execute(client, container) {
     } catch (error) {
         logger.error('Erro ao registrar comandos de aplicação:', error);
     }
-    
+
+    if (tenantConfig) {
+        for (const [guildId, guildConfig] of tenantConfig.guildConfigs) {
+            const discordGuild = client.guilds.cache.get(guildId);
+            if (discordGuild) {
+                await tenantConfig.applyGuildConfig(discordGuild, guildConfig);
+                logger.info(`Config aplicada na guild ${discordGuild.name} (${guildId})`);
+            }
+        }
+
+        tenantConfig.subscribeToRealtime(client);
+        logger.info('Inscrição Realtime para mudanças de config ativada.');
+    }
+
     logger.info('PixelBot inicializado com sucesso!');
 }

@@ -1,102 +1,188 @@
-// src/supabase/index.js
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+let supabaseAnon = null;
+let supabaseAdmin = null;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase URL or Anon Key not found in environment variables');
+export function initSupabase(config) {
+  const url = config.SUPABASE_URL;
+  if (!url) {
+    console.error('SUPABASE_URL not configured');
+    return null;
+  }
+
+  const anonKey = config.SUPABASE_ANON_KEY;
+  if (anonKey) {
+    supabaseAnon = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  const serviceKey = config.SUPABASE_SERVICE_KEY;
+  if (serviceKey) {
+    supabaseAdmin = createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  if (!supabaseAnon && !supabaseAdmin) {
+    console.error('No Supabase key configured (set SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY)');
+    return null;
+  }
+
+  return supabaseAdmin || supabaseAnon;
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
+export function getClient(useAdmin = false) {
+  return useAdmin ? (supabaseAdmin || supabaseAnon) : (supabaseAnon || supabaseAdmin);
+}
 
-export async function getGameData(worldName, category, itemName) {
+export async function resolveGuildTenant(guildId) {
+  const client = getClient(true);
+  if (!client) return null;
+
+  const { data: guild, error } = await client
+    .from('discord_guilds')
+    .select('guild_id, tenant_id, channel_id, bot_enabled')
+    .eq('guild_id', guildId)
+    .maybeSingle();
+
+  if (error || !guild || !guild.tenant_id) return null;
+
+  const { data: tenant, error: tenantError } = await client
+    .from('tenants')
+    .select('id, name, slug, description, logo_url, discord_config')
+    .eq('id', guild.tenant_id)
+    .single();
+
+  if (tenantError || !tenant) return null;
+
+  return {
+    ...guild,
+    tenantId: tenant.id,
+    tenantName: tenant.name,
+    tenantSlug: tenant.slug,
+    tenantDescription: tenant.description,
+    tenantLogoUrl: tenant.logo_url,
+    discordConfig: tenant.discord_config || {},
+  };
+}
+
+export async function resolveTenant(identifier) {
+  const client = getClient(true);
+  if (!client) return null;
+
+  const isUuid = identifier.includes('-');
+  const query = client.from('tenants').select('*');
+
+  if (isUuid) {
+    query.eq('id', identifier);
+  } else {
+    query.eq('slug', identifier);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+export async function fetchGameTable(tenantId, tableName) {
+  const client = getClient(true);
+  if (!client) return [];
+
+  const { data, error } = await client
+    .from(tableName)
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error(`Error fetching ${tableName}:`, error.message);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function fetchAllGameData(tenantId) {
+  const client = getClient(true);
+  if (!client) return {};
+
+  const tables = ['weapons', 'armors', 'rings', 'potions', 'upgrades', 'worlds', 'enemies', 'bosses', 'codes'];
+  const results = {};
+
+  for (const table of tables) {
+    const { data, error } = await client
+      .from(table)
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('name', { ascending: true });
+
+    if (!error && data) {
+      results[table] = data;
+    } else {
+      results[table] = [];
+    }
+  }
+
+  const { data: configData, error: configError } = await client
+    .from('game_config')
+    .select('*')
+    .eq('tenant_id', tenantId);
+
+  if (!configError && configData) {
+    results.game_config = configData;
+  }
+
+  return results;
+}
+
+export async function fetchCodes(tenantId) {
+  const client = getClient(true);
+  if (!client) return [];
+
+  const { data, error } = await client
+    .from('codes')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching codes:', error.message);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getGameData(tableName, searchTerm, tenantId) {
+  const client = getClient(true);
+  if (!client) return { error: 'Supabase not configured' };
+
   try {
-    let query = supabase.from('worlds').select('*');
-    
-    if (worldName) {
-      query = query.ilike('name', `%${worldName}%`);
+    let query = client
+      .from(tableName)
+      .select('*')
+      .eq('tenant_id', tenantId);
+
+    if (searchTerm) {
+      query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
     }
-    
-    const { data: worlds, error: worldError } = await query;
-    
-    if (worldError) throw worldError;
-    
-    if (!worlds || worlds.length === 0) {
-      return { error: `Could not find any worlds.` };
+
+    const { data, error } = await query.limit(20);
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return { error: `No items found in "${tableName}"${searchTerm ? ` matching "${searchTerm}"` : ''}.` };
     }
-    
-    const results = [];
-    const searchName = itemName ? itemName.toLowerCase().replace(/ /g, '-') : null;
-    
-    for (const world of worlds) {
-      let itemsQuery = supabase.from(category).select('*').eq('world_id', world.id);
-      
-      if (searchName) {
-        itemsQuery = itemsQuery.or(`name.ilike.%${searchName}%,id.ilike.%${searchName}%`);
-      }
-      
-      const { data: items, error: itemsError } = await itemsQuery;
-      
-      if (itemsError) continue;
-      
-      if (items && items.length > 0) {
-        for (const item of items) {
-          const itemData = {
-            id: item.id,
-            world: world.name,
-            ...item
-          };
-          
-          if (category === 'powers' && item.id) {
-            const { data: stats } = await supabase
-              .from('power_stats')
-              .select('*')
-              .eq('power_id', item.id)
-              .order('multiplier', { ascending: true });
-            
-            if (stats) {
-              itemData.stats = stats;
-            }
-          }
-          
-          results.push(itemData);
-        }
-      }
-    }
-    
-    if (results.length === 0) {
-      return { error: `No items found in category "${category}" ${itemName ? `with name containing "${itemName}"` : ''} in any searched world.` };
-    }
-    
-    return results;
-    
+
+    return data;
   } catch (error) {
     console.error('Error fetching game data:', error);
     return { error: 'An error occurred while fetching data from Supabase.' };
   }
 }
 
-export async function getUpdateLog() {
-  try {
-    const { data, error } = await supabase
-      .from('bot_config')
-      .select('value')
-      .eq('key', 'latestUpdateLog')
-      .single();
-    
-    if (error || !data) {
-      return { error: 'Nenhum log de atualização encontrado.' };
-    }
-    
-    return data.value;
-  } catch (error) {
-    console.error('Error fetching update log:', error);
-    return { error: 'An error occurred while fetching the update log.' };
-  }
-}
+export { supabaseAnon, supabaseAdmin };
