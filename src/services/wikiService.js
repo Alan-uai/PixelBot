@@ -60,11 +60,10 @@ export class WikiService {
 
     async getContext(tenantId) {
         if (!tenantId) {
-            this.logger.warn('[WikiService] tenantId não fornecido, retornando contexto vazio.');
-            return '';
+            this.logger.warn('[WikiService] tenantId não fornecido, usando fallback JSON.');
         }
 
-        if (this.contextCache.has(tenantId)) {
+        if (tenantId && this.contextCache.has(tenantId)) {
             return this.contextCache.get(tenantId);
         }
 
