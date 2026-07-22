@@ -1,7 +1,4 @@
-// src/commands/utility/clean.js
 import { SlashCommandBuilder, PermissionsBitField, ChannelType } from 'discord.js';
-
-const ADMIN_ROLE_ID = '1429318984716521483';
 
 export const data = new SlashCommandBuilder()
     .setName('clean')
@@ -13,11 +10,15 @@ export const data = new SlashCommandBuilder()
             .setMinValue(1)
             .setMaxValue(100)
     )
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages); // Restrição inicial para quem pode ver o comando
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages);
 
 export async function execute(interaction) {
-    // Verificação final do cargo específico
-    if (!interaction.member.roles.cache.has(ADMIN_ROLE_ID)) {
+    const member = interaction.member;
+    const isOwner = interaction.guild.ownerId === member.id;
+    const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+    const hasManageMessages = member.permissions.has(PermissionsBitField.Flags.ManageMessages);
+
+    if (!isOwner && !isAdmin && !hasManageMessages) {
         return interaction.reply({
             content: 'Você não tem permissão para usar este comando.',
             ephemeral: true,
